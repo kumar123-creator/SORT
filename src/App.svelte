@@ -1,191 +1,123 @@
 <script>
-  import { onMount } from "svelte";
-  import { createEventDispatcher } from "svelte";
-  import 'bootstrap/dist/css/bootstrap.min.css';
-  import EditPopup from "./EditPopup.svelte";
-  import DeletePopup from "./DeletePopup.svelte";
-  import UploadCvPopup from "./UploadCvPopup.svelte";
-  import Table from "./Table.svelte"; 
-  import SuccessPopup from "./SuccessPopup.svelte";
+	import { onMount } from "svelte";
+	import { createEventDispatcher } from "svelte";
+	import 'bootstrap/dist/css/bootstrap.min.css';
   
-  let jsonData = [];
-  let tableVisible = false;
-  let selectedJob = null;
-  let uploadJobId = null;
-  let isPopupVisible = false;
-	let file = null;
-	let deleteJobId = null;
-	let isDeletePopupVisible = false;
-	let editJob = null;
-	let isEditPopupVisible = false;
-	let isUploadSuccess = false;
+	let jsonData = [];
+	let sortedData = [];
+	let searchQuery = "";
+	let tableVisible = false;
+	let selectedCandidate = null;
+	let currentPage = 1;
+	let sortField = 'name'; // Track the sort field
+	let sortAsc = true; // Track the sort order
+	const itemsPerPage = 10;
   
-
-  const dispatch = createEventDispatcher();
-
-  onMount(async () => {
-    await fetchData();
-    tableVisible = true;
-  });
-
-  async function fetchData() {
-    const response = await fetch("https://api.recruitly.io/api/candidate?apiKey=TEST1236C4CF23E6921C41429A6E1D546AC9535E"
-    );
-    const responseData = await response.json();
-    jsonData = responseData.data;
-  }
-
-  function handleUploadCV(jobId) {
-    uploadJobId = jobId;
-    isPopupVisible = true;
-  }
-
-  function handleFileUpload(event) {
-    const file = event.target.files[0];
-    // Perform further actions with the uploaded file
-
-    // Example: Update the backend API URL with the file upload
-    const formData = new FormData();
-    formData.append("file", file);
-
-    fetch(
-      `https://api.recruitly.io/api/candidatecv/upload?apiKey=TEST1236C4CF23E6921C41429A6E1D546AC9535E&candidateId=${uploadJobId}`,
-       {
-      method: "POST",
-      body: formData
-    })
-      .then(response => {
-        // Handle the response accordingly
-        if (response.ok) {
-          console.log("CV uploaded successfully!");
-          isUploadSuccess = true;
-        } else {
-          console.error("CV upload failed.");
-        }
-      })
-      .catch(error => {
-        console.error("CV upload error:", error);
-      })
-      .finally(() => {
-        isPopupVisible = false;
-      });
-  }
-  function handleSave() {
-	  // Perform save logic
-	  // In this case, we're updating the backend API URL with the file upload
-	  const formData = new FormData();
-	  formData.append("file", file);
+	const dispatch = createEventDispatcher();
   
-	  fetch(`https://api.recruitly.io/api/candidatecv/upload?apiKey=TEST1236C4CF23E6921C41429A6E1D546AC9535E&candidateId=${uploadJobId}`, {
-		method: "POST",
-		body: formData
-	  })
-		.then(response => {
-		  // Handle the response accordingly
-		  if (response.ok) {
-			console.log("CV uploaded successfully!");
-			isUploadSuccess = true; // Set the flag to true
+	onMount(async () => {
+	  await fetchData();
+	  tableVisible = true;
+	});
+  
+	async function fetchData() {
+	  const response = await fetch(`https://api.recruitly.io/api/candidate/?apiKey=TEST1236C4CF23E6921C41429A6E1D546AC9535E&search=${encodeURIComponent(searchQuery)}`);
+	  const responseData = await response.json();
+	  jsonData = responseData.data;
+	  sortData(); // Sort the data initially
+	}
+  
+	function handleTitleClick(candidate) {
+	  selectedCandidate = candidate;
+	  dispatch("showPopup");
+	}
+  
+	function sortData() {
+	  if (sortField === 'name') {
+		sortedData = jsonData.sort((a, b) => {
+		  if (sortAsc) {
+			return a.firstName.localeCompare(b.firstName);
 		  } else {
-			console.error("CV upload failed.");
+			return b.firstName.localeCompare(a.firstName);
 		  }
-		})
-		.catch(error => {
-		  console.error("CV upload error:", error);
-		})
-		.finally(() => {
-		  // Perform close logic
-		  isPopupVisible = false;
 		});
-	}
-  
-  function handleClose() {
-	  isPopupVisible = false;
-	  isDeletePopupVisible = false;
-    isEditPopupVisible = false;
-	 isUploadSuccess=false;
-	}
-
-  function handleDelete(jobId) {
-    deleteJobId = jobId;
-    isDeletePopupVisible = true;
-  }
-  function handleDeleteConfirm() {
-	  fetch(
-		`https://api.recruitly.io/api/candidate/${deleteJobId}?apiKey=TEST1236C4CF23E6921C41429A6E1D546AC9535E`,
-		{
-		  method: "DELETE",
-		}
-	  )
-		.then((response) => {
-		  // Handle the response accordingly
-		  if (response.ok) {
-			console.log("Job deleted successfully!");
-			// Update the API URL to reflect the changes
-			return fetchData();
+	  } else if (sortField === 'date') {
+		sortedData = jsonData.sort((a, b) => {
+		  if (sortAsc) {
+			return new Date(a.date) - new Date(b.date);
 		  } else {
-			console.error("Job delete failed.");
+			return new Date(b.date) - new Date(a.date);
 		  }
-		})
-		.catch((error) => {
-		  console.error("Job delete error:", error);
-		})
-		.finally(() => {
-		  isDeletePopupVisible = false;
 		});
+	  }
 	}
   
-
-  function handleEdit(job) {
-    editJob = { ...job };
-    isEditPopupVisible = true;
-  }
-
-  function handleEditSave() {
-	  fetch("https://api.recruitly.io/api/candidate?apiKey=TEST1236C4CF23E6921C41429A6E1D546AC9535E", {
-		method: "POST",
-		body: JSON.stringify(editJob),
-		headers: {
-		  "Content-Type": "application/json",
-		},
-	  })
-		.then((response) => {
-		  // Handle the response accordingly
-		  if (response.ok) {
-			console.log("Job edited successfully!");
-			// Update the API URL to reflect the changes
-			return fetchData();
-		  } else {
-			console.error("Job edit failed.");
-		  }
-		})
-		.catch((error) => {
-		  console.error("Job edit error:", error);
-		})
-		.finally(() => {
-		  isEditPopupVisible = false;
-		});
+	function toggleSortOrder(field) {
+	  if (sortField === field) {
+		sortAsc = !sortAsc;
+	  } else {
+		sortField = field;
+		sortAsc = true;
+	  }
+	  sortData();
 	}
-</script>
   
-<main class="container mt-4">
-	<Table {jsonData} {handleUploadCV} {handleDelete} {handleEdit} />
-	{#if isPopupVisible && uploadJobId !== null}
-	  <UploadCvPopup {handleFileUpload} {handleClose} />
-	{/if}
-	{#if isUploadSuccess}
-	  <SuccessPopup on:dismiss={handleClose} />
-	{/if}
-	{#if isDeletePopupVisible && deleteJobId !== null}
-	  <DeletePopup
-		{handleDeleteConfirm}
-		{handleClose}
-	  />
-	{/if}
-	{#if isEditPopupVisible && editJob !== null}
-	  <EditPopup
-		{editJob}
-		{handleEditSave}
-		{handleClose}
-	  />
+	$: filteredData = sortedData.filter(candidate => candidate.firstName.toLowerCase().includes(searchQuery.toLowerCase()));
+  </script>
+  
+  <main class="container mt-4">
+	<div class="mb-3">
+	  <button class="btn btn-primary" on:click={() => toggleSortOrder('name')}>Sort by Name {sortField === 'name' && (sortAsc ? 'Asc' : 'Desc')}</button>
+	  <button class="btn btn-primary ml-2" on:click={() => toggleSortOrder('date')}>Sort by Date {sortField === 'date' && (sortAsc ? 'Asc' : 'Desc')}</button>
+	</div>
+  
+	{#if tableVisible}
+	  <table class="table">
+		<thead class="thead-light">
+		  <tr>
+			<th>First Name</th>
+			<th>Surname</th>
+			<th>Email</th>
+			<th>Mobile</th>
+			<th>ID</th>
+			<th>Date</th>
+		  </tr>
+		</thead>
+		<tbody>
+		  {#each filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) as candidate}
+			<tr>
+			  <td>{candidate.firstName}</td>
+			  <td>{candidate.surname}</td>
+			  <td>{candidate.email}</td>
+			  <td>{candidate.mobile}</td>
+			  <td>{candidate.id}</td>
+			  <td>{candidate.date}</td>
+			</tr>
+		  {/each}
+		</tbody>
+	  </table>
+  
+	  <ul class="pagination">
+		{#each Array(Math.ceil(filteredData.length / itemsPerPage)).fill() as _, i}
+		  <li class="page-item {currentPage === i + 1 ? 'active' : ''}">
+			<a class="page-link" href="#" on:click|preventDefault={() => (currentPage = i + 1)}>{i + 1}</a>
+		  </li>
+		{/each}
+	  </ul>
 	{/if}
   </main>
+  
+  {#if selectedCandidate}
+  <div class="popup">
+	<div class="popup-content">
+	  <h2>{selectedCandidate.firstName}</h2>
+	  <p>ID: {selectedCandidate.id}</p>
+	  <p>First Name: {selectedCandidate.firstName}</p>
+	  <p>Surname: {selectedCandidate.surname}</p>
+	  <p>Email: {selectedCandidate.email}</p>
+	  <button class="btn btn-primary" on:click={() => (selectedCandidate = null)}>Close</button>
+	</div>
+  </div>
+  {/if}
+  
+ 
